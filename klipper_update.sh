@@ -8,12 +8,12 @@ make clean
 
 sudo sh ~/gpio.sh write 20 1 # dfu mode on
 sudo sh ~/gpio.sh write 21 0 # reset on
-sleep 0.5
+sleep 1
 sudo sh ~/gpio.sh write 21 1 # reset off
 make flash FLASH_DEVICE=0483:df11
 sudo sh ~/gpio.sh write 20 0 # dfu mode off
 sudo sh ~/gpio.sh write 21 0 # reset on
-sleep 0.5
+sleep 1
 sudo sh ~/gpio.sh write 21 1 # reset off
 
 # Update MCU if you need
