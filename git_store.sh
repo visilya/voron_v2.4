@@ -1,5 +1,6 @@
 #/usr/bin/env bash
 cd ~/klipper_config
+rm -f printer-*.cfg
 TODAY=$(date)
 git add .
 git commit -m "$TODAY"
