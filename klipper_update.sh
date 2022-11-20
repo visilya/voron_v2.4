@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sudo service klipper stop
+# sudo service klipper stop
 
 cd ~/klipper/
 git pull
@@ -17,12 +17,12 @@ sleep 1
 sudo sh ~/gpio.sh write 21 1 # reset off
 
 # Update MCU if you need
-sudo service klipper_mcu stop
+# sudo service klipper_mcu stop
 cd ~/klipper_mcu/
 git pull
 make clean
 make flash
-sudo service klipper_mcu start
+# sudo service klipper_mcu start
 
 # Update EBB if you need
 cd ~/klipper_ebb/
@@ -31,4 +31,5 @@ make clean
 make
 python3 ~/CanBoot/scripts/flash_can.py -i can0 -f ./out/klipper.bin -u d22185cfd0c4
 
-sudo service klipper start
+sudo systemctl restart klipper_mcu klipper
+
