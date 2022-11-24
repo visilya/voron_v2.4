@@ -10,31 +10,28 @@ EBB_NAME=ebb
 EBB_CAN=d22185cfd0c4
 ### End config ###
 
-cd ~/klipper/
-klipper_ver=$(git rev-parse HEAD)
-git pull
-if [ $klipper_ver == $(git rev-parse HEAD) ]; then
-  echo "Same version. Exiting."
-  exit 0
-fi
-
-make clean
+ask=$1
+forceflash=$2
 
 build_klipper() {
   echo ----------- $1 ----------- 
   KCONFIG_FILE=~/klipper_config/script/klipper_$1.cfg
-  if [ ! -f "$KCONFIG_FILE" ]; then
-    echo "$KCONFIG_FILE does not exists."
-    read -p "Do you want to configure $1? [Y:n]" -n 1 -r REPLY
-    REPLY=${REPLY:-Y}
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-       make menuconfig $KCONFIG_FILE
-    else
-      read -p "Abort bash file? [y:N]" -n 1 -r REPLY
-      REPLY=${REPLY:-N}
+  if [ ! -f "$KCONFIG_FILE"]; then
+    if [ $ask == "1" ]; then
+      echo "$KCONFIG_FILE does not exists."
+      read -p "Do you want to configure $1? [Y:n]" -n 1 -r REPLY
+      REPLY=${REPLY:-Y}
       if [[ $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
+        make menuconfig $KCONFIG_FILE
+      else 
+        read -p "Abort bash file? [y:N]" -n 1 -r REPLY
+        REPLY=${REPLY:-N}
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+          exit 1
+        fi
       fi
+    else
+      exit 1
     fi
   fi
   if [ -f "$KCONFIG_FILE" ]; then
@@ -46,17 +43,34 @@ build_klipper() {
     fi
   fi
 }
-build_klipper $MCU_NAME
-rm -rf ~/klipper/out
-mv ~/klipper/out_$MCU_NAME ~/klipper/out
-make flash KCONFIG_CONFIG=$KCONFIG_FILE
-mv ~/klipper/out ~/klipper/out_$MCU_NAME
 
-build_klipper $OCTOPUS_NAME build
-python3 ~/CanBoot/scripts/flash_can.py -i can0 -f ~/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
-python3 ~/CanBoot/scripts/flash_can.py -f ~/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
+main() {
+  cd ~/klipper/
+  klipper_ver=$(git rev-parse HEAD)
+  git pull
+  if [ $klipper_ver == $(git rev-parse HEAD) && ! $forceflash ]; then
+    # Same klipper version. 
+    echo "Exiting."
+    exit 0
+  fi
 
-build_klipper $EBB_NAME build
-python3 ~/CanBoot/scripts/flash_can.py -i can0 -f ~/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
+  make clean
 
-~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0
+  build_klipper $MCU_NAME
+  rm -rf ~/klipper/out
+  mv ~/klipper/out_$MCU_NAME ~/klipper/out
+  make flash KCONFIG_CONFIG=$KCONFIG_FILE
+  mv ~/klipper/out ~/klipper/out_$MCU_NAME
+
+  build_klipper $OCTOPUS_NAME build
+  python3 ~/CanBoot/scripts/flash_can.py -i can0 -f ~/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
+  python3 ~/CanBoot/scripts/flash_can.py -f ~/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
+
+  build_klipper $EBB_NAME build
+  python3 ~/CanBoot/scripts/flash_can.py -i can0 -f ~/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
+
+  ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0
+}
+
+main
+exit 0
