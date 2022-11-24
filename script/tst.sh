@@ -11,7 +11,13 @@ EBB_CAN=d22185cfd0c4
 ### End config ###
 
 cd ~/klipper/
+klipper_ver=$(git rev-parse HEAD)
 git pull
+if [ $klipper_ver == $(git rev-parse HEAD) ]; then
+  echo "Same version. Exiting."
+  exit 0
+fi
+
 make clean
 
 build_klipper() {
