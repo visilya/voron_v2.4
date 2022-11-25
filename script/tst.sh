@@ -2,11 +2,11 @@
 ### Start config ###
 MCU_NAME=mcu
 
-OCTOPUS_NAME=octopus
+OCTOPUS_NAME=octopus1
 OCTOPUS_CAN=ce5f75f5c4f0
 OCTOPUS_SERIAL_ID=usb-CanBoot_stm32f429xx_2E004E001450304738313820-if00
 
-EBB_NAME=ebb
+EBB_NAME=ebb1
 EBB_CAN=d22185cfd0c4
 ### End config ###
 
@@ -16,13 +16,13 @@ forceflash=$2
 build_klipper() {
   echo ----------- $1 ----------- 
   KCONFIG_FILE=~/klipper_config/script/klipper_$1.cfg
-  if [ ! -f "$KCONFIG_FILE"]; then
-    if [ $ask == "1" ]; then
+  if [ ! -f "$KCONFIG_FILE" ]; then
+    if [[ "$ask" == "1" ]]; then
       echo "$KCONFIG_FILE does not exists."
       read -p "Do you want to configure $1? [Y:n]" -n 1 -r REPLY
       REPLY=${REPLY:-Y}
       if [[ $REPLY =~ ^[Yy]$ ]]; then
-        make menuconfig $KCONFIG_FILE
+        make menuconfig KCONFIG_CONFIG=$KCONFIG_FILE
       else 
         read -p "Abort bash file? [y:N]" -n 1 -r REPLY
         REPLY=${REPLY:-N}
@@ -31,6 +31,7 @@ build_klipper() {
         fi
       fi
     else
+      echo "$KCONFIG_FILE does not exists."
       exit 1
     fi
   fi
@@ -48,7 +49,7 @@ main() {
   cd ~/klipper/
   klipper_ver=$(git rev-parse HEAD)
   git pull
-  if [ $klipper_ver == $(git rev-parse HEAD) && ! $forceflash ]; then
+  if [[ $klipper_ver == $(git rev-parse HEAD)]] && ! [["$forceflash" == "1" ]]; then
     # Same klipper version. 
     echo "Exiting."
     exit 0
@@ -68,8 +69,8 @@ main() {
 
   build_klipper $EBB_NAME build
   python3 ~/CanBoot/scripts/flash_can.py -i can0 -f ~/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
-
   ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0
+
 }
 
 main
