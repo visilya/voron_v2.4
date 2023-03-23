@@ -20,7 +20,6 @@ ask=$1
 forceflash=$2
 
 build_klipper() {
-#  echo $ask $forceflash
   echo ----------- $1 -----------
   KCONFIG_FILE=$WORKING_DIR/klipper_config/script/klipper_$1.cfg
   if [ ! -f "$KCONFIG_FILE" ]; then
@@ -52,7 +51,7 @@ build_klipper() {
   if [ -f "$KCONFIG_FILE" ]; then
     # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' $KCONFIG_FILE
     sed -i -e '/OUT=/d' $KCONFIG_FILE
-    # make clean KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
+    make clean KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
     if [[ "$2" == "build" ]]; then
       make KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
     fi
@@ -86,7 +85,7 @@ main() {
 
   echo "Flashing"
   ### Flash MCU (rpi)
-#  build_klipper $MCU_NAME flash
+  build_klipper $MCU_NAME flash
 
   ### Flash Octopus
   #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
@@ -107,35 +106,15 @@ main() {
   python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
 
   ### List CAN devices
+  echo "List CAN devices"
   $WORKING_DIR/klippy-env/bin/python $WORKING_DIR/klipper/scripts/canbus_query.py can0
 
   ## Starting services
+  echo "Starting services"
   service klipper_mcu start
   service klipper start
 }
 
-#if [ "$EUID" -ne 0 ]
-#  then echo "Please run as root"
-#  exit 0
-#fi
-
 main
-
-exit 0
-
-if [ $# -eq 0 ]; then
-  >&2 echo "No arguments provided"
-  exit 1
-fi
-
-getent passwd $1  > /dev/null
-
-if [ $? -eq 0 ]; then
-  export -f main
-  su $1 -c "bash -c main"
-  #sudo -H -u $1 main
-else
-  echo "The user " $1 " does not exist"
-fi
 
 exit 0
