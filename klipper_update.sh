@@ -20,7 +20,8 @@ ask=$1
 forceflash=$2
 
 build_klipper() {
-  echo ----------- $1 ----------- 
+#  echo $ask $forceflash
+  echo ----------- $1 -----------
   KCONFIG_FILE=$WORKING_DIR/klipper_config/script/klipper_$1.cfg
   if [ ! -f "$KCONFIG_FILE" ]; then
     if [[ "$ask" == "1" ]]; then
@@ -29,7 +30,7 @@ build_klipper() {
       REPLY=${REPLY:-Y}
       if [[ $REPLY =~ ^[Yy]$ ]]; then
         make menuconfig KCONFIG_CONFIG=$KCONFIG_FILE
-      else 
+      else
         read -p "Abort bash file? [y:N]" -n 1 -r REPLY
         REPLY=${REPLY:-N}
         if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -41,12 +42,22 @@ build_klipper() {
       exit 1
     fi
   fi
+  if [[ "$ask" == "2" ]]; then
+    read -p "Do you want to configure $1? [Y:n]" -n 1 -r REPLY
+    REPLY=${REPLY:-Y}
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      make menuconfig KCONFIG_CONFIG=$KCONFIG_FILE
+    fi
+  fi
   if [ -f "$KCONFIG_FILE" ]; then
     # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' $KCONFIG_FILE
     sed -i -e '/OUT=/d' $KCONFIG_FILE
-    make clean KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
+    # make clean KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
     if [[ "$2" == "build" ]]; then
       make KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
+    fi
+    if [[ "$2" == "flash" ]]; then
+      make flash $3 KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
     fi
   fi
 }
@@ -56,30 +67,75 @@ main() {
   klipper_ver=$(git rev-parse HEAD)
   git pull
   if [[ $klipper_ver == $(git rev-parse HEAD)]] && ! [["$forceflash" == "1" ]]; then
-    # Same klipper version. 
+    # Same klipper version.
     echo "Exiting."
     exit 0
   fi
 
   rm -rf $WORKING_DIR/klipper/out
-  
-  # build for MCU, Mainboard, EBB
+
+  # Build klipper
   build_klipper $MCU_NAME
   build_klipper $OCTOPUS_NAME build
   build_klipper $EBB_NAME build
-  
+
+  ### Stoping services
+  echo "Stoping services"
   service klipper stop
+  service klipper_mcu stop
 
-  # Flash MCU, Mainboard, EBB
-  make flash KCONFIG_CONFIG=$KCONFIG_FILE OUT=$WORKING_DIR/klipper/out_$MCU_NAME
-  # This is for flash mainboard through U2C bridge
-  python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
-  # python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
+  echo "Flashing"
+  ### Flash MCU (rpi)
+#  build_klipper $MCU_NAME flash
 
+  ### Flash Octopus
+  #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
+  #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
+  sudo sh $WORKING_DIR/gpio.sh write 20 1 # dfu mode on
+  sudo sh $WORKING_DIR/gpio.sh write 21 0 # reset on
+  sleep 0.5
+  sudo sh $WORKING_DIR/gpio.sh write 21 1 # reset off
+  sleep 1
+  build_klipper $OCTOPUS_NAME flash FLASH_DEVICE=0483:df11
+  sudo sh $WORKING_DIR/gpio.sh write 20 0 # dfu mode off
+  sudo sh $WORKING_DIR/gpio.sh write 21 0 # reset on
+  sleep 0.5
+  sudo sh $WORKING_DIR/gpio.sh write 21 1 # reset off
+  sleep 1
+
+  ### Flash EBB
   python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
+
+  ### List CAN devices
   $WORKING_DIR/klippy-env/bin/python $WORKING_DIR/klipper/scripts/canbus_query.py can0
+
+  ## Starting services
+  service klipper_mcu start
   service klipper start
 }
 
+#if [ "$EUID" -ne 0 ]
+#  then echo "Please run as root"
+#  exit 0
+#fi
+
 main
+
+exit 0
+
+if [ $# -eq 0 ]; then
+  >&2 echo "No arguments provided"
+  exit 1
+fi
+
+getent passwd $1  > /dev/null
+
+if [ $? -eq 0 ]; then
+  export -f main
+  su $1 -c "bash -c main"
+  #sudo -H -u $1 main
+else
+  echo "The user " $1 " does not exist"
+fi
+
 exit 0
