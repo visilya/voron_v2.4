@@ -1,12 +1,14 @@
 #!/bin/bash
 # Get CAN devicies id
 # ~/klippy-env/bin/python ~/klipper/scripts/canbus_query.py can0
+# python3 ~/CanBoot/scripts/flash_can.py -i can0 -q
+# https://www.shellcheck.net/
 
 ### Start config ###
 MCU_NAME=mcu
 
 OCTOPUS_NAME=octopus
-OCTOPUS_CAN=ce5f75f5c4f0
+# OCTOPUS_CAN=ce5f75f5c4f0
 # OCTOPUS_SERIAL_ID=usb-CanBoot_stm32f429xx_2E004E001450304738313820-if00
 
 EBB_NAME=ebb
@@ -19,95 +21,118 @@ WORKING_DIR=/home/ilya
 ask=$1
 forceflash=$2
 
-build_klipper() {
-  echo ----------- $1 -----------
-  KCONFIG_FILE=$WORKING_DIR/klipper_config/script/klipper_$1.cfg
-  if [ ! -f "$KCONFIG_FILE" ]; then
+check_kconfig() {
+  if [ ! -f "$1" ]; then
     if [[ "$ask" == "1" ]]; then
-      echo "$KCONFIG_FILE does not exists."
+      echo "$1 does not exists."
       read -p "Do you want to configure $1? [Y:n]" -n 1 -r REPLY
       REPLY=${REPLY:-Y}
       if [[ $REPLY =~ ^[Yy]$ ]]; then
-        make menuconfig KCONFIG_CONFIG=$KCONFIG_FILE
+        make menuconfig KCONFIG_CONFIG="$1"
       else
-        read -p "Abort bash file? [y:N]" -n 1 -r REPLY
-        REPLY=${REPLY:-N}
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-          exit 1
-        fi
+        echo "$1 does not exists."
+        return 1
       fi
     else
-      echo "$KCONFIG_FILE does not exists."
-      exit 1
+      echo "$1 does not exists."
+      return 1
     fi
   fi
-  if [[ "$ask" == "2" ]]; then
-    read -p "Do you want to configure $1? [Y:n]" -n 1 -r REPLY
-    REPLY=${REPLY:-Y}
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-      make menuconfig KCONFIG_CONFIG=$KCONFIG_FILE
-    fi
+  return 0
+}
+
+build_klipper() {
+  echo ----------- "$1" -----------
+  KCONFIG_FILE=$WORKING_DIR/klipper_config/script/klipper_$1.cfg
+  if ! check_kconfig "$KCONFIG_FILE"; then
+    exit 1
   fi
   if [ -f "$KCONFIG_FILE" ]; then
-    # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' $KCONFIG_FILE
-    sed -i -e '/OUT=/d' $KCONFIG_FILE
-    make clean KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
+    # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' "$KCONFIG_FILE"
+    sed -i -e '/OUT=/d' "$KCONFIG_FILE"
+    make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
     if [[ "$2" == "build" ]]; then
-      make KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
+      make KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
     fi
     if [[ "$2" == "flash" ]]; then
-      make flash $3 KCONFIG_CONFIG=$KCONFIG_FILE OUT=out_"$1"/
+      make flash "$3" KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
     fi
   fi
 }
 
 main() {
-  cd $WORKING_DIR/klipper/
+  flashboard=1
+  flashmcu=1
+  flashebb=1
+  forceflashebb=0
+
+  cd $WORKING_DIR/CanBoot/ || exit
+  canboot_ver=$(git rev-parse HEAD)
+  git pull
+  if [[ ! ($canboot_ver == $(git rev-parse HEAD))]]; then
+    KCONFIG_FILE=$WORKING_DIR/klipper_config/script/canboot_"$EBB_NAME".cfg
+    if check_kconfig "$KCONFIG_FILE"; then
+      if [ -f "$KCONFIG_FILE" ]; then
+        make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$EBB_NAME/
+        make KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$EBB_NAME/
+        python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/CanBoot/out_$EBB_NAME/deployer.bin -u $EBB_CAN
+        forceflashebb=1
+      fi
+    else
+      echo "$KCONFIG_FILE does not exists. Skipping CanBoot update."
+    fi
+  fi
+
+  cd $WORKING_DIR/klipper/ || exit
   klipper_ver=$(git rev-parse HEAD)
   git pull
-  if [[ $klipper_ver == $(git rev-parse HEAD)]] && ! [["$forceflash" == "1" ]]; then
+  if [[ $klipper_ver == $(git rev-parse HEAD) ]] && ! [[ "$forceflash" == "1" ]]; then
     # Same klipper version.
-    echo "Exiting."
-    exit 0
+    flashboard=0
+    flashmcu=0
+    if [ $forceflashebb -eq 0 ]; then
+      flashebb=0
+    fi
   fi
 
   rm -rf $WORKING_DIR/klipper/out
-
-  # Build klipper
-  build_klipper $MCU_NAME
-  build_klipper $OCTOPUS_NAME build
-  build_klipper $EBB_NAME build
 
   ### Stoping services
   echo "Stoping services"
   service klipper stop
   service klipper_mcu stop
 
+  # Build and flash klipper
   echo "Flashing"
-  ### Flash MCU (rpi)
-  build_klipper $MCU_NAME flash
-
-  ### Flash Octopus
-  #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
-  #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
-  sudo sh $WORKING_DIR/gpio.sh write 20 1 # dfu mode on
-  sudo sh $WORKING_DIR/gpio.sh write 21 0 # reset on
-  sleep 0.5
-  sudo sh $WORKING_DIR/gpio.sh write 21 1 # reset off
-  sleep 1
-  build_klipper $OCTOPUS_NAME flash FLASH_DEVICE=0483:df11
-  sudo sh $WORKING_DIR/gpio.sh write 20 0 # dfu mode off
-  sudo sh $WORKING_DIR/gpio.sh write 21 0 # reset on
-  sleep 0.5
-  sudo sh $WORKING_DIR/gpio.sh write 21 1 # reset off
-  sleep 1
-
-  ### Flash EBB
-  python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
-
-  ### List CAN devices
-  echo "List CAN devices"
-  $WORKING_DIR/klippy-env/bin/python $WORKING_DIR/klipper/scripts/canbus_query.py can0
+  if [ $flashmcu -eq 1 ]; then 
+    build_klipper $MCU_NAME
+    build_klipper $MCU_NAME flash
+  fi
+  if [ $flashebb -eq 1 ]; then
+    build_klipper $EBB_NAME build
+    ### Flash EBB
+    python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
+    ### List CAN devices
+    echo "List CAN devices"
+    $WORKING_DIR/klippy-env/bin/python $WORKING_DIR/klipper/scripts/canbus_query.py can0
+  fi
+  if [ $flashboard -eq 1 ]; then 
+    build_klipper $OCTOPUS_NAME build
+    ### Flash Octopus
+    #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
+    #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
+    sudo sh $WORKING_DIR/gpio.sh write 20 1 # dfu mode on
+    sudo sh $WORKING_DIR/gpio.sh write 21 0 # reset on
+    sleep 0.5
+    sudo sh $WORKING_DIR/gpio.sh write 21 1 # reset off
+    sleep 1
+    sudo sh $WORKING_DIR/gpio.sh write 20 0 # dfu mode off
+    build_klipper $OCTOPUS_NAME flash FLASH_DEVICE=0483:df11
+    sudo sh $WORKING_DIR/gpio.sh write 21 0 # reset on
+    sleep 0.5
+    sudo sh $WORKING_DIR/gpio.sh write 21 1 # reset off
+    sleep 1
+  fi
 
   ## Starting services
   echo "Starting services"
