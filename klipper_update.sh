@@ -8,7 +8,7 @@
 MCU_NAME=mcu
 
 OCTOPUS_NAME=octopus
-# OCTOPUS_CAN=ce5f75f5c4f0
+OCTOPUS_CAN=ce5f75f5c4f0
 # OCTOPUS_SERIAL_ID=usb-CanBoot_stm32f429xx_2E004E001450304738313820-if00
 
 EBB_NAME=ebb
@@ -48,6 +48,7 @@ build_klipper() {
     exit 1
   fi
   if [ -f "$KCONFIG_FILE" ]; then
+    echo 'Config file: $WORKING_DIR/klipper_config/script/klipper_$1.cfg'
     # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' "$KCONFIG_FILE"
     sed -i -e '/OUT=/d' "$KCONFIG_FILE"
     make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
@@ -55,7 +56,8 @@ build_klipper() {
       make KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
     fi
     if [[ "$2" == "flash" ]]; then
-      make flash "$3" KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
+      echo make flash "$3" KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
+      make flash $3 KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
     fi
   fi
 }
@@ -88,8 +90,9 @@ main() {
   git pull
   if [[ $klipper_ver == $(git rev-parse HEAD) ]] && ! [[ "$forceflash" == "1" ]]; then
     # Same klipper version.
-    flashboard=0
-    flashmcu=0
+#    flashboard=0
+#    flashmcu=0
+     echo 1
     if [ $forceflashebb -eq 0 ]; then
       flashebb=0
     fi
@@ -127,6 +130,7 @@ main() {
     sudo sh $WORKING_DIR/gpio.sh write 21 1 # reset off
     sleep 1
     sudo sh $WORKING_DIR/gpio.sh write 20 0 # dfu mode off
+#    python3 ~/CanBoot/scripts/flash_can.py -i can0 -r -u $OCTOPUS_CAN
     build_klipper $OCTOPUS_NAME flash FLASH_DEVICE=0483:df11
     sudo sh $WORKING_DIR/gpio.sh write 21 0 # reset on
     sleep 0.5
