@@ -48,7 +48,7 @@ build_klipper() {
     exit 1
   fi
   if [ -f "$KCONFIG_FILE" ]; then
-    echo 'Config file: $WORKING_DIR/klipper_config/script/klipper_$1.cfg'
+    echo 'Config file: '$WORKING_DIR'/klipper_config/script/klipper_'$1'.cfg'
     # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' "$KCONFIG_FILE"
     sed -i -e '/OUT=/d' "$KCONFIG_FILE"
     make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
@@ -93,8 +93,8 @@ main() {
 #    flashboard=0
 #    flashmcu=0
      echo 1
-    if [ $forceflashebb -eq 0 ]; then
-      flashebb=0
+    if [ $forceflashebb -eq 1 ]; then
+      flashebb=1
     fi
   fi
 
@@ -120,7 +120,7 @@ main() {
     $WORKING_DIR/klippy-env/bin/python $WORKING_DIR/klipper/scripts/canbus_query.py can0
   fi
   if [ $flashboard -eq 1 ]; then 
-    build_klipper $OCTOPUS_NAME build
+    #build_klipper $OCTOPUS_NAME build
     ### Flash Octopus
     #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -u $OCTOPUS_CAN
     #python3 $WORKING_DIR/CanBoot/scripts/flash_can.py -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
