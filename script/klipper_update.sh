@@ -130,6 +130,7 @@ main() {
     sudo sh $WORKING_DIR/printer_data/config/script/gpio.sh write 21 1 # reset off
     sleep 1
     sudo sh $WORKING_DIR/printer_data/config/script/gpio.sh write 20 0 # dfu mode off
+#    make -j4 OUT=out_octopus/ KCONFIG_CONFIG=~/printer_data/config/script/klipper_octopus.cfg flash FLASH_DEVICE=0483:df11
 #    python3 ~/katapult/scripts/flash_can.py -i can0 -r -u $OCTOPUS_CAN
     build_klipper $OCTOPUS_NAME flash FLASH_DEVICE=0483:df11
     sudo sh $WORKING_DIR/printer_data/config/script/gpio.sh write 21 0 # reset on
