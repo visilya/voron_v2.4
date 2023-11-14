@@ -43,12 +43,12 @@ check_kconfig() {
 
 build_klipper() {
   echo ----------- "$1" -----------
-  KCONFIG_FILE=$WORKING_DIR/klipper_config/script/klipper_$1.cfg
+  KCONFIG_FILE=$WORKING_DIR/printer_data/config/script/klipper_$1.cfg
   if ! check_kconfig "$KCONFIG_FILE"; then
     exit 1
   fi
   if [ -f "$KCONFIG_FILE" ]; then
-    echo 'Config file: '$WORKING_DIR'/klipper_config/script/klipper_'$1'.cfg'
+    echo 'Config file: '$WORKING_DIR'/printer_data/config/script/klipper_'$1'.cfg'
     # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' "$KCONFIG_FILE"
     sed -i -e '/OUT=/d' "$KCONFIG_FILE"
     make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
@@ -72,7 +72,7 @@ main() {
   canboot_ver=$(git rev-parse HEAD)
   git pull
   if [[ ! ($canboot_ver == $(git rev-parse HEAD))]]; then
-    KCONFIG_FILE=$WORKING_DIR/klipper_config/script/canboot_"$EBB_NAME".cfg
+    KCONFIG_FILE=$WORKING_DIR/printer_data/config/script/canboot_"$EBB_NAME".cfg
     if check_kconfig "$KCONFIG_FILE"; then
       if [ -f "$KCONFIG_FILE" ]; then
         make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$EBB_NAME/
