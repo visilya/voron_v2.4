@@ -1,5 +1,5 @@
 #/usr/bin/env bash
-cd ~/klipper_config
+cd ~/printer_data/config
 rm -f printer-*.cfg
 TODAY=$(date)
 git add .

@@ -1,4 +1,4 @@
-# sudo ln -s ~/klipper_config/git_store.service /etc/systemd/system/git_store.service
+# sudo ln -s ~/printer_data/config/git_store.service /etc/systemd/system/git_store.service
 # sudo systemctl enable git_store
 [Unit]
 Description=Store Klipper config to github
@@ -6,8 +6,8 @@ After=network-online.target
  
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /home/ilya/klipper_config/git_store.sh
-ExecReload=/bin/bash /home/ilya/klipper_config/git_store.sh
+ExecStart=/bin/bash /home/ilya/printer_data/config/git_store.sh
+ExecReload=/bin/bash /home/ilya/printer_data/config/git_store.sh
 User=ilya
 Group=ilya
  
