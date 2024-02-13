@@ -17,7 +17,6 @@ EBB_CAN=d22185cfd0c4
 WORKING_DIR=/home/ilya
 ### End config ###
 
-
 ask=$1
 forceflash=$2
 
