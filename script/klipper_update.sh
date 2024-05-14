@@ -14,6 +14,9 @@ OCTOPUS_CAN=ce5f75f5c4f0
 EBB_NAME=ebb
 EBB_CAN=d22185cfd0c4
 
+ERCF_NAME=ercf
+ERCF_CAN=48ca42bbc884
+
 WORKING_DIR=/home/ilya
 ### End config ###
 
@@ -61,6 +64,20 @@ build_klipper() {
   fi
 }
 
+do_can() {
+    KCONFIG_FILE=$WORKING_DIR/printer_data/config/script/canboot_"$1".cfg
+    if check_kconfig "$KCONFIG_FILE"; then
+      if [ -f "$KCONFIG_FILE" ]; then
+        make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$1/
+        make -j4 KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$1/
+        python3 ~/katapult/scripts/flash_can.py -i can0 -f ~/katapult/out_$1/deployer.bin -u 48ca42bbc884
+      fi
+    else
+      echo "$KCONFIG_FILE does not exists. Skipping $3 katapult update."
+    fi
+}
+
+
 main() {
   flashboard=1
   flashmcu=1
@@ -82,6 +99,7 @@ main() {
     else
       echo "$KCONFIG_FILE does not exists. Skipping katapult update."
     fi
+      do_can $ERCF_NAME $ERCF_CAN ERCF
   fi
 
   cd $WORKING_DIR/klipper/ || exit
