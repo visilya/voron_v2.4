@@ -14,8 +14,8 @@ OCTOPUS_CAN=ce5f75f5c4f0
 EBB_NAME=ebb
 EBB_CAN=d22185cfd0c4
 
-ERCF_NAME=ercf
-ERCF_CAN=48ca42bbc884
+TR_NAME=tr
+TR_CAN=48ca42bbc884
 
 WORKING_DIR=/home/ilya
 ### End config ###
@@ -70,7 +70,7 @@ do_can() {
       if [ -f "$KCONFIG_FILE" ]; then
         make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$1/
         make -j4 KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$1/
-        python3 ~/katapult/scripts/flash_can.py -i can0 -f ~/katapult/out_$1/deployer.bin -u 48ca42bbc884
+        python3 ~/katapult/scripts/flash_can.py -i can0 -f ~/katapult/out_$1/deployer.bin -u $2
       fi
     else
       echo "$KCONFIG_FILE does not exists. Skipping $3 katapult update."
@@ -79,40 +79,30 @@ do_can() {
 
 
 main() {
-  flashboard=1
-  flashmcu=1
+
+  force_katapult=0
+  forceflash_can=0
+  forceflash=1
+  flashmcu=0
   flashebb=1
-  forceflashebb=0
+  flashtr=0
+  flashboard=0
 
   cd $WORKING_DIR/katapult/ || exit
   canboot_ver=$(git rev-parse HEAD)
   git pull
-  if [[ ! ($canboot_ver == $(git rev-parse HEAD))]]; then
-    KCONFIG_FILE=$WORKING_DIR/printer_data/config/script/canboot_"$EBB_NAME".cfg
-    if check_kconfig "$KCONFIG_FILE"; then
-      if [ -f "$KCONFIG_FILE" ]; then
-        make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$EBB_NAME/
-        make -j4 KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_$EBB_NAME/
-        python3 $WORKING_DIR/katapult/scripts/flash_can.py -i can0 -f $WORKING_DIR/katapult/out_$EBB_NAME/deployer.bin -u $EBB_CAN
-        forceflashebb=1
-      fi
-    else
-      echo "$KCONFIG_FILE does not exists. Skipping katapult update."
-    fi
-      do_can $ERCF_NAME $ERCF_CAN ERCF
+  if [[ ! ($canboot_ver == $(git rev-parse HEAD)) ]] || [[ $force_katapult -eq 1 ]]; then
+    do_can $EBB_NAME $EBB_CAN TR
+    do_can $TR_NAME $TR_CAN TR
+    forceflash_can=1
   fi
 
   cd $WORKING_DIR/klipper/ || exit
   klipper_ver=$(git rev-parse HEAD)
   git pull
-  if [[ $klipper_ver == $(git rev-parse HEAD) ]] && ! [[ "$forceflash" == "1" ]]; then
-    # Same klipper version.
-#    flashboard=0
-#    flashmcu=0
-     echo 1
-    if [ $forceflashebb -eq 1 ]; then
-      flashebb=1
-    fi
+  if [[ $klipper_ver == $(git rev-parse HEAD) ]] && ! [[ $forceflash -eq 1 ]]; then
+    echo Same klipper version.
+    exit
   fi
 
   rm -rf $WORKING_DIR/klipper/out
@@ -120,7 +110,7 @@ main() {
   ### Stoping services
   echo "Stoping services"
   service klipper stop
-  service klipper_mcu stop
+#  service klipper_mcu stop
 
   # Build and flash klipper
   echo "Flashing"
@@ -128,10 +118,18 @@ main() {
     build_klipper $MCU_NAME
     build_klipper $MCU_NAME flash
   fi
-  if [ $flashebb -eq 1 ]; then
+  if [[ $flashebb -eq 1 ]] || [[ $forceflash_can -eq 1 ]]; then
     build_klipper $EBB_NAME build
     ### Flash EBB
     python3 $WORKING_DIR/katapult/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$EBB_NAME/klipper.bin -u $EBB_CAN
+    ### List CAN devices
+    echo "List CAN devices"
+    $WORKING_DIR/klippy-env/bin/python $WORKING_DIR/klipper/scripts/canbus_query.py can0
+  fi
+  if [[ $flashtr -eq 1 ]] || [[ $forceflash_can -eq 1 ]]; then
+    build_klipper $TR_NAME build
+    ### Flash EBB
+    python3 $WORKING_DIR/katapult/scripts/flash_can.py -i can0 -f $WORKING_DIR/klipper/out_$TR_NAME/klipper.bin -u $TR_CAN
     ### List CAN devices
     echo "List CAN devices"
     $WORKING_DIR/klippy-env/bin/python $WORKING_DIR/klipper/scripts/canbus_query.py can0
@@ -158,7 +156,7 @@ main() {
 
   ## Starting services
   echo "Starting services"
-  service klipper_mcu start
+#  service klipper_mcu start
   service klipper start
 }
 
