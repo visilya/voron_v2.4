@@ -80,13 +80,13 @@ do_can() {
 
 main() {
 
-  force_katapult=0
-  forceflash_can=0
-  forceflash=0
-  flashmcu=1
+  force_katapult=1
+  forceflash_can=1
+  forceflash=1
+  flashmcu=0
   flashebb=1
-  flashtr=1
-  flashboard=1
+  flashtr=0
+  flashboard=0
 
   cd $WORKING_DIR/katapult/ || exit
   canboot_ver=$(git rev-parse HEAD)
