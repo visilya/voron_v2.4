@@ -83,10 +83,10 @@ main() {
   force_katapult=1
   forceflash_can=1
   forceflash=1
-  flashmcu=0
+  flashmcu=1
   flashebb=1
-  flashtr=0
-  flashboard=0
+  flashtr=1
+  flashboard=1
 
   cd $WORKING_DIR/katapult/ || exit
   canboot_ver=$(git rev-parse HEAD)
