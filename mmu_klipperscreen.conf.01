@@ -478,7 +478,7 @@ name: {{ gettext('Home') }}
 icon: home
 method: printer.gcode.script
 params: {"script":"MMU_HOME"}
-enable: {{ printer.mmu.selector_type and printer.mmu.selector_type != "VirtualSelector" }}
+enable: {{ printer.mmu.selector_type  and printer.mmu.selector_type != "VirtualSelector" }}
 show_disabled: True
 
 [menu __main more mmu_calib select_gates]
