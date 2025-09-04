@@ -1,10 +1,7 @@
-[include mmu/optional/client_macros.cfg]
-[include mmu/addons/blobifier.cfg]
-[include mmu/addons/mmu_erec_cutter.cfg]
 [include mmu/base/*.cfg]
 [include ebb.cfg]
 #[include trad_rack_mellow_ercf_easy_brd_can.cfg]
-#[include tradrack.cfg]
+[include tradrack.cfg]
 #[include tradrack_al.cfg]
 #[include u2c.cfg]
 #[include adxl345.cfg] # needed to install klipper to host
