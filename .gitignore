@@ -6,3 +6,5 @@ printer-*.cfg
 imgs/*
 input_shaper/*
 .moonraker.conf.bkp
+mmu_*
+
