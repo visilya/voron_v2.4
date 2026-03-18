@@ -53,6 +53,7 @@ build_klipper() {
     echo 'Config file: '$WORKING_DIR'/printer_data/config/script/klipper_'$1'.cfg'
     # sed -i -e '1iOUT=out_'"$1"'/' -e '/OUT=/d' "$KCONFIG_FILE"
     sed -i -e '/OUT=/d' "$KCONFIG_FILE"
+    make olddefconfig KCONFIG_CONFIG="$KCONFIG_FILE"
     make clean KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
     if [[ "$2" == "build" ]]; then
       make -j4 KCONFIG_CONFIG="$KCONFIG_FILE" OUT=out_"$1"/
@@ -143,19 +144,15 @@ main() {
     #python3 $WORKING_DIR/katapult/scripts/flash_can.py -f $WORKING_DIR/klipper/out_$OCTOPUS_NAME/klipper.bin -d /dev/serial/by-id/$OCTOPUS_SERIAL_ID
 
     # sudo apt-get install gpiod
-    sudo gpioset 0 20=1 &&  # dfu mode on \
-    sudo gpioset 0 21=0 && # reset on \ 
-    sudo sleep 0.5 && \
-    sudo gpioset 0 21=1 && # reset off \
-    sudo sleep 2 && \
-    sudo gpioset 0 20=0 # dfu mode off
+    timeout 0.1s /usr/bin/gpioset -c gpiochip0 20=on   # dfu mode on
+    timeout 0.5s /usr/bin/gpioset -c gpiochip0 21=off  # reset on
+    timeout 0.1s /usr/bin/gpioset -c gpiochip0 21=on   # reset off
+    timeout 0.1s /usr/bin/gpioset -c gpiochip0 20=off  # dfu mode off
 #    make -j4 OUT=out_octopus/ KCONFIG_CONFIG=~/printer_data/config/script/klipper_octopus.cfg flash FLASH_DEVICE=0483:df11
 #    python3 ~/katapult/scripts/flash_can.py -i can0 -r -u $OCTOPUS_CAN
     build_klipper $OCTOPUS_NAME flash FLASH_DEVICE=0483:df11
-    sudo gpioset 0 21=0 && # reset on \
-    sudo sleep 0.5 && \
-    sudo gpioset 0 21=1 && # reset off \
-    sudo sleep 2
+    timeout 0.5s /usr/bin/gpioset -c gpiochip0 21=off  # reset on
+    timeout 1s /usr/bin/gpioset -c gpiochip0 21=on   # reset off
   fi
 
   ## Starting services
